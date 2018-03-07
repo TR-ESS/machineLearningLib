@@ -1,0 +1,49 @@
+#!/bin/sh
+assetName=$1
+assetTickDbName=$2
+sspan=$3
+lspan=$4
+sourceType=$5
+storage=$6
+
+if [ "$sourceType" == "" ]; then
+    sourceType="News"
+fi
+
+if [ "$storage" == "" ]; then
+    storage="gs://tr-jp-analytics/arc"
+fi
+columnlist="buzz sentiment optimism fear joy trust violence conflict gloom stress timeUrgency uncertainty emotionVsFact longShort longShortForecast priceDirection priceForecast volatility consumptionVolume regulatoryIssues supplyVsDemand supplyVsDemandForecast"
+
+assetlist="CRU NAP NGS POIL COR SOY1 WHT"
+
+trmidblist=(trmidb.com_enm_1h trmidb.com_enm_1h trmidb.com_enm_1h trmidb.com_agr_1h trmidb.com_agr_1h trmidb.com_agr_1h trmidb.com_agr_1h)
+
+cd $HOME/mllib/sql
+
+c=0
+for asset in $assetlist
+do
+    echo $asset
+    dbname=`echo ${trmidblist[$c]}`
+    echo $dbname
+    for indices in $columnlist
+    do
+	echo "-----$indices"
+	fname=`../command/manipulateMultiAssetsColSQL.cmd tickdb.$assetTickDbName "$asset" "$dbname" "$sourceType" $assetName "$indices" "none"`
+	fname=`echo $fname | awk '{print $1}'`
+	if [ -e ../data/$fname ]; then
+	    ofname=`echo $fname | sed 's/.csv/_corr.csv/g'`
+	    echo "Good file with $fname, going to calculate correlation in $ofname"
+	    python ../command/computeCorrelation.py -i ../data/$fname -c "windowTimestamp assetCode Open Last $asset$indices" -s $sspan -l $lspan
+	    if [ -e ../data/$ofname ]; then
+		# LOAD CORREL DATA INTO BIG QUERY
+		table=`echo $ofname | sed 's/.csv//g'`
+		bq rm -f -t research.$table
+		gsutil cp ../data/$ofname $storage
+		bq load  --replace --source_format=CSV --field_delimiter=',' --autodetect research.$table $storage/$ofname
+	    fi
+	fi
+    done
+    let c=($c+1)
+done 
