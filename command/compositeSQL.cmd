@@ -90,7 +90,7 @@ do
 	    subCols=`echo $subCols','$colName`
 	fi
     done
-    echo 'inner join (select '$subCols' from '${trmidblist[$count]}' where assetCode='"'"$asset"'"' and dataType='"'"$dataType"'"') AS '$asset''$count' ON PRC.windowTimestamp='$asset''$count'.windowTimestamp ' >> ./composite.sql
+    echo 'inner join (select '$subCols' from '${trmidblist[$count]}' where assetCode='"'"$asset"'"' and dataType='"'"$dataType"'" and windowTimestamp "> '"2009-12-31T23:59:59.000Z"'"') AS '$asset''$count' ON PRC.windowTimestamp='$asset''$count'.windowTimestamp ' >> ./composite.sql
     let count=($count + 1)
 done
 
